@@ -33,3 +33,40 @@ def egg_contours(
             contour_list.append(contour)
 
     return contour_list
+
+def optimize_segmentation_hypers(
+        imgs: List[np.ndarray],
+        dp_thresh_lower_bound_range: Tuple[int, int] = (1,10),
+        dp_thresh_upper_bound_range: Tuple[int, int] = (10, 30),
+        area_thresh_range: Tuple[int, int] = (100, 500),
+        max_contours: int = 5
+) -> Tuple[Tuple[int, int], int, int]:
+    """
+    Find optimal segmentation hyperparameters
+    :param imgs: List of images to optimize segmentation hyperparameters on
+    :param dp_thresh_lower_bound_range: Range of lower bounds for number of curves
+    :param dp_thresh_upper_bound_range: Range of upper bounds for number of curves
+    :param area_thresh_range: Range of area thresholds
+    :return: Optimal segmentation hyperparameters
+    """
+    # Find optimal segmentation hyperparameters
+    best_dp_thresh = None
+    best_area_thresh = None
+    best_score = 0
+    for dp_thresh_lower_bound in range(dp_thresh_lower_bound_range[0], dp_thresh_lower_bound_range[1]):
+        for dp_thresh_upper_bound in range(dp_thresh_upper_bound_range[0], dp_thresh_upper_bound_range[1]):
+            for area_thresh in range(area_thresh_range[0], area_thresh_range[1]):
+                # Calculate score
+                score = 0
+                for img in imgs:
+                    contours = egg_contours(img, (dp_thresh_lower_bound, dp_thresh_upper_bound), area_thresh)
+                    if len(contours) > 0 and len(contours) <= max_contours:
+                        score += 1
+
+                # Update best score
+                if score > best_score:
+                    best_score = score
+                    best_dp_thresh = (dp_thresh_lower_bound, dp_thresh_upper_bound)
+                    best_area_thresh = area_thresh
+
+    return best_dp_thresh, best_area_thresh, best_score
