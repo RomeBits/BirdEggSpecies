@@ -27,7 +27,10 @@ def egg_contours(
     # filter for ovular contours
     contour_list = []
     for contour in contours:
+        #https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm
         approx = cv2.approxPolyDP(contour, 0.01 * cv2.arcLength(contour, True), True)
+
+        # https://byjus.com/maths/greens-theorem/#:~:text=Therefore%2C%20the%20line%20integral%20defined,%E2%88%AB%20c%20x%20d%20y
         area = cv2.contourArea(contour)
         if (len(approx) > dp_thresh[0]) & (len(approx) < dp_thresh[1]) & (area > area_thresh):
             contour_list.append(contour)
