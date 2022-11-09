@@ -87,18 +87,24 @@ if __name__ == "__main__":
     print("Loading data...")
 
     # load label encoder
-    with open(os.path.join(args.data_dir, "objects/le.pkl"), "rb") as f:
-        label_encoder = pickle.load(f)
+    with open(os.path.join(args.data_dir, "objects/train.pkl"), "rb") as f:
+        train_label_encoder = pickle.load(f)
+
+    with open(os.path.join(args.data_dir, "objects/test.pkl"), "rb") as f:
+        test_label_encoder = pickle.load(f)
 
     # Load data
-    data = np.load(os.path.join(args.data_dir, "train_data.npz"), allow_pickle=True)
-    X = np.transpose(data["X"], (0, 3, 1, 2))
-    y = label_encoder.transform(data["Y"])
+    data = np.load(os.path.join(args.data_dir, "train_dataset.npz"), allow_pickle=True)
+    X_train = np.transpose(data["X"], (0, 3, 1, 2))
+    y_train = train_label_encoder.transform(data["Y"])
 
-    print("Splitting data...")
+    data = np.load(os.path.join(args.data_dir, "test_dataset.npz"), allow_pickle=True)
+    X_valid = np.transpose(data["X"], (0, 3, 1, 2))
+    y_valid = test_label_encoder.transform(data["Y"])
+    # print("Splitting data...")
 
     # Split data
-    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
+    # X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # create transforms
     transform = transforms.Compose([
@@ -124,10 +130,10 @@ if __name__ == "__main__":
     print("Training model...")
 
     # Create model
-    model = eval(args.model)(num_classes=len(label_encoder.classes_))
+    model = eval(args.model)(num_classes=len(train_label_encoder.classes_))
 
     # Train model
     model = train_classifier(model, train_loader, valid_loader, device, epochs=args.epochs, lr=args.lr)
 
     # Save model
-    torch.save(model.state_dict(), os.path.join(args.output_dir, "{}.pth".format(args.model)))
+    torch.save(model.state_dict(), os.path.join(args.output_dir, "{}_ben.pth".format(args.model)))
