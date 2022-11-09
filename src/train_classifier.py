@@ -87,10 +87,10 @@ if __name__ == "__main__":
     print("Loading data...")
 
     # load label encoder
-    with open(os.path.join(args.data_dir, "objects/train.pkl"), "rb") as f:
+    with open(os.path.join(args.data_dir, "objects/le.pkl"), "rb") as f:
         train_label_encoder = pickle.load(f)
 
-    with open(os.path.join(args.data_dir, "objects/test.pkl"), "rb") as f:
+    with open(os.path.join(args.data_dir, "objects/le.pkl"), "rb") as f:
         test_label_encoder = pickle.load(f)
 
     # Load data
