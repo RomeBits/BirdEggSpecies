@@ -45,28 +45,6 @@ def test(model, test_loader, device):
     return correct / total
 
 
-def train_classifier(model, train_loader, valid_loader, device, epochs=10, lr=0.001):
-    model = model.to(device)
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    for epoch in range(epochs):
-        model.train()
-        for i, (images, labels) in enumerate(train_loader):
-            images = images.to(device)
-            labels = labels.to(device)
-            optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            if i % 10 == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
-                      .format(epoch + 1, epochs, i + 1, len(train_loader), loss.item()))
-        acc = test(model, valid_loader, device)
-        print(f"Epoch {epoch + 1}/{epochs} - Validation accuracy: {acc}")
-    return model
-
-
 if __name__ == "__main__":
     import argparse
     import os
@@ -75,11 +53,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="CNN_16_32_FC_128")
-    parser.add_argument("--epochs", type=int, default=10)
-    parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--data_dir", type=str, default="../data")
-    parser.add_argument("--output_dir", type=str, default="../models")
+    parser.add_argument("--model_dir", type=str, default="../models")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -93,18 +69,9 @@ if __name__ == "__main__":
     with open(os.path.join(args.data_dir, "objects/le.pkl"), "rb") as f:
         test_label_encoder = pickle.load(f)
 
-    # Load data
-    data = np.load(os.path.join(args.data_dir, "train_dataset.npz"), allow_pickle=True)
-    X_train = np.transpose(data["X"], (0, 3, 1, 2))
-    y_train = train_label_encoder.transform(data["Y"])
-
     data = np.load(os.path.join(args.data_dir, "test_dataset.npz"), allow_pickle=True)
-    X_valid = np.transpose(data["X"], (0, 3, 1, 2))
-    y_valid = test_label_encoder.transform(data["Y"])
-    # print("Splitting data...")
-
-    # Split data
-    # X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_test = np.transpose(data["X"], (0, 3, 1, 2))
+    y_test = test_label_encoder.transform(data["Y"])
 
     # create transforms
     transform = transforms.Compose([
@@ -114,26 +81,25 @@ if __name__ == "__main__":
         transforms.Resize((64, 64))
     ])
 
-    # Create data loaders
-    train_dataset = TransformedTensorDataset(
-        tensors=(torch.from_numpy(X_train).float(), torch.from_numpy(y_train).long()),
-        transform=transform
-    )
-    valid_dataset = TransformedTensorDataset(
-        tensors=(torch.from_numpy(X_valid).float(), torch.from_numpy(y_valid).long()),
+    # Create data loader
+    test_dataset = TransformedTensorDataset(
+        tensors=(torch.from_numpy(X_test).float(), torch.from_numpy(y_test).long()),
         transform=transform
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
-    print("Training model...")
+    print("Testing model...")
 
     # Create model
     model = eval(args.model)(num_classes=len(train_label_encoder.classes_))
 
-    # Train model
-    model = train_classifier(model, train_loader, valid_loader, device, epochs=args.epochs, lr=args.lr)
+    # Load model
+    model.load_state_dict(torch.load(os.path.join(args.model_dir, "{}.pth".format(args.model))))
 
-    # Save model
-    torch.save(model.state_dict(), os.path.join(args.output_dir, "{}.pth".format(args.model)))
+    # Move model to device
+    model.to(device)
+
+    # Test model
+    accuracy = test(model, test_loader, device)
+    print("Accuracy: {:.2f}%".format(accuracy * 100))
