@@ -51,20 +51,21 @@ def train_classifier(model, train_loader, valid_loader, device, epochs=10, lr=0.
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     for epoch in range(epochs):
         model.train()
+        correct = 0
         for i, (images, labels) in enumerate(train_loader):
             images = images.to(device)
             labels = labels.to(device)
             optimizer.zero_grad()
             outputs = model(images)
-            correct = (torch.max(outputs, 1)[1].view(labels.size()).data == labels.data).sum()
+            correct += (torch.max(outputs, 1)[1].view(labels.size()).data == labels.data).sum()
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             if i % 10 == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
-                      .format(epoch + 1, epochs, i + 1, len(train_loader), loss.item(), (100 * correct / float(len(images)))))
+                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
+                      .format(epoch + 1, epochs, i + 1, len(train_loader), loss.item()))
         acc = test(model, valid_loader, device)
-        print(f"Epoch {epoch + 1}/{epochs} - Validation accuracy: {acc}")
+        print(f"Epoch {epoch + 1}/{epochs} - Validation accuracy: {acc}, Training accuracy: {correct / float(len(train_loader.dataset))}")
     return model
 
 
@@ -84,6 +85,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    print("Using device:", device)
 
     print("Loading data...")
 
@@ -112,7 +115,7 @@ if __name__ == "__main__":
         transforms.ToPILImage(),
         transforms.ToTensor(),
         transforms.Normalize((0.5,), (0.5,)),
-        transforms.Resize((64, 64))
+        transforms.Resize((224, 224))
     ])
 
     # Create data loaders
@@ -128,6 +131,8 @@ if __name__ == "__main__":
         tensors=(torch.from_numpy(X_test).float(), torch.from_numpy(y_test).long()),
         transform=transform
     )
+
+    print("Input image size:", X_train.shape[1:])
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False)
