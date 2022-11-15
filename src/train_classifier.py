@@ -1,4 +1,4 @@
-from models import CNN_16_32_FC_128, CNN_32_64_FC_128, CNN_64_128_FC_256, CNN_16_32_FC_128_64
+from models import *
 from torchvision import transforms
 from torch.utils.data import DataLoader, random_split, TensorDataset, Dataset
 from sklearn.model_selection import train_test_split
@@ -56,12 +56,13 @@ def train_classifier(model, train_loader, valid_loader, device, epochs=10, lr=0.
             labels = labels.to(device)
             optimizer.zero_grad()
             outputs = model(images)
+            correct = (torch.max(outputs, 1)[1].view(labels.size()).data == labels.data).sum()
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             if i % 10 == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
-                      .format(epoch + 1, epochs, i + 1, len(train_loader), loss.item()))
+                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
+                      .format(epoch + 1, epochs, i + 1, len(train_loader), loss.item(), (100 * correct / float(len(images)))))
         acc = test(model, valid_loader, device)
         print(f"Epoch {epoch + 1}/{epochs} - Validation accuracy: {acc}")
     return model
@@ -95,16 +96,16 @@ if __name__ == "__main__":
 
     # Load data
     data = np.load(os.path.join(args.data_dir, "train_dataset.npz"), allow_pickle=True)
-    X_train = np.transpose(data["X"], (0, 3, 1, 2))
-    y_train = train_label_encoder.transform(data["Y"])
+    X_raw = np.transpose(data["X"], (0, 3, 1, 2))
+    y_raw = train_label_encoder.transform(data["Y"])
 
     data = np.load(os.path.join(args.data_dir, "test_dataset.npz"), allow_pickle=True)
-    X_valid = np.transpose(data["X"], (0, 3, 1, 2))
-    y_valid = test_label_encoder.transform(data["Y"])
+    X_test = np.transpose(data["X"], (0, 3, 1, 2))
+    y_test = test_label_encoder.transform(data["Y"])
     # print("Splitting data...")
 
     # Split data
-    # X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_valid, y_train, y_valid = train_test_split(X_raw, y_raw, test_size=0.2, random_state=42)
 
     # create transforms
     transform = transforms.Compose([
@@ -123,9 +124,14 @@ if __name__ == "__main__":
         tensors=(torch.from_numpy(X_valid).float(), torch.from_numpy(y_valid).long()),
         transform=transform
     )
+    test_dataset = TransformedTensorDataset(
+        tensors=(torch.from_numpy(X_test).float(), torch.from_numpy(y_test).long()),
+        transform=transform
+    )
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
     print("Training model...")
 
@@ -134,6 +140,10 @@ if __name__ == "__main__":
 
     # Train model
     model = train_classifier(model, train_loader, valid_loader, device, epochs=args.epochs, lr=args.lr)
+
+    # Test model
+    acc = test(model, test_loader, device)
+    print(f"Test accuracy: {acc}")
 
     # Save model
     torch.save(model.state_dict(), os.path.join(args.output_dir, "{}.pth".format(args.model)))

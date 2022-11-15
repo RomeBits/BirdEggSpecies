@@ -1,26 +1,22 @@
 import torch.nn as nn
 import torch
-import torchvision import models
+from torchvision.models import resnet18
 
 
 class Resnet18_Pretrained_Backbone(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
 
-        resnet = models.resnet18(pretrained=True)
+        resnet = resnet18(weights=None)
 
         # Remove the last fc layer of the pretrained network.
         self.backbone = nn.Sequential(*list(resnet.children())[:-1])
 
-        # Freeze backbone weights.
-        for param in self.backbone.parameters():
-            param.requires_grad = False
-
-        # Implement the fully connected layers for classification and regression.
-        self.classification = nn.Sequential(nn.Flatten(), nn.Linear(512, 128), nn.ReLU(), nn.Linear(128, num_classes), nn.ReLU())
+        self.classification = nn.Sequential(nn.Linear(512, 128), nn.ReLU(), nn.Linear(128, num_classes), nn.ReLU())
 
     def forward(self, x):
         x = self.backbone(x)
+        x = x.view(x.size(0), -1)
         x = self.classification(x)
         return x
 
