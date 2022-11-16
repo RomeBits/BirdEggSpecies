@@ -1,9 +1,9 @@
 import torch.nn as nn
 import torch
-from torchvision.models import resnet18
+from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
 
 
-class Resnet18_Pretrained_Backbone(nn.Module):
+class Resnet18(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
 
@@ -11,8 +11,29 @@ class Resnet18_Pretrained_Backbone(nn.Module):
 
         # Remove the last fc layer of the pretrained network.
         self.backbone = nn.Sequential(*list(resnet.children())[:-1])
-
+        self.dropout = nn.Dropout(0.5)
+        self.batchnorm = nn.BatchNorm1d(512)
         self.classification = nn.Sequential(nn.Linear(512, 128), nn.ReLU(), nn.Linear(128, num_classes), nn.ReLU())
+
+    def forward(self, x):
+        x = self.backbone(x)
+        x = x.view(x.size(0), -1)
+        x = self.dropout(x)
+        x = self.batchnorm(x)
+        x = self.classification(x)
+        return x
+
+
+class Resnet50(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+
+        resnet = resnet50(weights=None)
+
+        # Remove the last fc layer of the pretrained network.
+        self.backbone = nn.Sequential(*list(resnet.children())[:-1])
+
+        self.classification = nn.Sequential(nn.Linear(2048, 512), nn.ReLU(), nn.Linear(512, num_classes), nn.ReLU())
 
     def forward(self, x):
         x = self.backbone(x)
