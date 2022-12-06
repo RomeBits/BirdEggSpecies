@@ -46,7 +46,7 @@ class TransformedTensorDataset(Dataset):
         return self.tensors[0].size(0)
 
 
-def test(model, test_loader, device):
+def test(model, test_loader, device, output_dir=None):
     model.eval()
     correct = 0
     total = 0
@@ -58,6 +58,15 @@ def test(model, test_loader, device):
             labels = labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
+
+            # plot failed images
+            if output_dir:
+                for i, label in enumerate(labels):
+                    if predicted[i] != label:
+                        img = images[i].cpu().numpy()
+                        img = np.transpose(img, (1,2,0))
+                        plt.imsave(f"{output_dir}/{label}_{predicted[i]}.png", img)
+
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
             total_loss += criterion(outputs, labels).item()
@@ -82,7 +91,7 @@ def train_classifier(model, train_loader, valid_loader, device, epochs=10, lr=0.
             labels = labels.to(device)
             optimizer.zero_grad()
             outputs = model(images)
-            correct += (torch.max(outputs, 1)[1].view(labels.size()).data == labels.data).sum().item()
+            correct += (torch.max(outputs, 1)[1] == labels).sum().item()
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -139,6 +148,9 @@ if __name__ == "__main__":
     X_test = np.transpose(data["X"], (0, 3, 1, 2))
     y_test = test_label_encoder.transform(data["Y"])
 
+    X_raw = np.flip(X_raw, axis=1).copy()
+    X_test = np.flip(X_test, axis=1).copy()
+
     print("Splitting data...")
 
     # Split data
@@ -147,21 +159,21 @@ if __name__ == "__main__":
     # create transforms
     transform = transforms.Compose([
         transforms.ToPILImage(),
-        transforms.ToTensor(),
-        transforms.Resize((160,160))
+        transforms.Resize((160,160)),
+        transforms.ToTensor()
     ])
 
     # Create data loaders
     train_dataset = TransformedTensorDataset(
-        tensors=(torch.from_numpy(X_train).float(), torch.from_numpy(y_train).long()),
+        tensors=(torch.from_numpy(X_train), torch.from_numpy(y_train).long()),
         transform=transform
     )
     valid_dataset = TransformedTensorDataset(
-        tensors=(torch.from_numpy(X_valid).float(), torch.from_numpy(y_valid).long()),
+        tensors=(torch.from_numpy(X_valid), torch.from_numpy(y_valid).long()),
         transform=transform
     )
     test_dataset = TransformedTensorDataset(
-        tensors=(torch.from_numpy(X_test).float(), torch.from_numpy(y_test).long()),
+        tensors=(torch.from_numpy(X_test), torch.from_numpy(y_test).long()),
         transform=transform
     )
 
@@ -184,7 +196,7 @@ if __name__ == "__main__":
     model = train_classifier(model, train_loader, valid_loader, device, epochs=args.epochs, lr=args.lr)
 
     # Test model
-    acc = test(model, test_loader, device)
+    acc = test(model, test_loader, device, output_dir="../images/failed")
     print(f"Test accuracy: {acc[0]}")
 
     # Save model
