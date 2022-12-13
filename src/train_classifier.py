@@ -49,6 +49,7 @@ class TransformedTensorDataset(Dataset):
 def test(model, test_loader, device, output_dir=None):
     model.eval()
     correct = 0
+    top_5_correct = 0
     total = 0
     total_loss = 0
     criterion = torch.nn.CrossEntropyLoss()
@@ -69,8 +70,9 @@ def test(model, test_loader, device, output_dir=None):
 
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+            top_5_correct += (torch.topk(outputs, 5)[1] == labels.view(-1, 1)).sum().item()
             total_loss += criterion(outputs, labels).item()
-    return correct / total, total_loss / len(test_loader)
+    return correct / total, total_loss / len(test_loader), top_5_correct / total
 
 
 def train_classifier(model, train_loader, valid_loader, device, epochs=10, lr=0.001):
@@ -197,7 +199,7 @@ if __name__ == "__main__":
 
     # Test model
     acc = test(model, test_loader, device, output_dir="../images/failed")
-    print(f"Test accuracy: {acc[0]}")
+    print(f"Top-1 accuracy: {acc[0]}, Top-5 accuracy: {acc[2]}")
 
     # Save model
     torch.save(model.state_dict(), os.path.join(args.output_dir, "{}.pth".format(args.model)))

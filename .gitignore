@@ -1,3 +1,8 @@
 env
 images
 .idea
+*.pkl
+*.pth
+*.pyc
+*.npz
+images/*

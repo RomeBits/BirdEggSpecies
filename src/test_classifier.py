@@ -33,6 +33,7 @@ class TransformedTensorDataset(Dataset):
 def test(model, test_loader, device):
     model.eval()
     correct = 0
+    top_5_correct = 0
     total = 0
     with torch.no_grad():
         for images, labels in test_loader:
@@ -42,7 +43,8 @@ def test(model, test_loader, device):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-    return correct / total
+            top_5_correct += torch.sum(torch.eq(torch.topk(outputs, 5, dim=1)[1], labels.view(-1, 1))).item()
+    return correct / total, top_5_correct / total
 
 
 if __name__ == "__main__":
@@ -101,5 +103,5 @@ if __name__ == "__main__":
     model.to(device)
 
     # Test model
-    accuracy = test(model, test_loader, device)
-    print("Accuracy: {:.2f}%".format(accuracy * 100))
+    accuracy, top_5_accuracy = test(model, test_loader, device)
+    print("Top-1 Accuracy: {:.2f}%, Top-5 Accuracy: {:.2f}%".format(accuracy * 100, top_5_accuracy * 100))
