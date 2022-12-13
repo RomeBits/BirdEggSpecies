@@ -4,6 +4,42 @@ import cv2
 from typing import List, Tuple
 
 
+def ruler_contour(img: np.ndarray):
+    """
+    Find contours of ruler in image
+    :param img: Image to find contours in (RGB)
+    :return: List of ruler contours
+    """
+    x, y = img.shape[0:2]
+    crop = img[x - (x // 20) * 2:-1, 0:y]
+    # Convert to grayscale
+    gray = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
+
+    # Getting Lines: https://stackoverflow.com/questions/45322630/how-to-detect-lines-in-opencv
+    low_threshold = 50
+    high_threshold = 100
+    edges = cv2.Canny(gray, low_threshold, high_threshold)
+    return crop, edges
+
+    rho = 1  # distance resolution in pixels of the Hough grid
+    theta = np.pi / 180  # angular resolution in radians of the Hough grid
+    threshold = 5  # minimum number of votes (intersections in Hough grid cell)
+    min_line_length = x // 20  # minimum number of pixels making up a line
+    max_line_gap = 1  # maximum gap in pixels between connectable line segments
+    line_image = np.copy(crop) * 0  # creating a blank to draw lines on
+
+    # Run Hough on edge detected image
+    # Output "lines" is an array containing endpoints of detected line segments
+    lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]),
+                            min_line_length, max_line_gap)
+
+    for line in lines:
+        for x1, y1, x2, y2 in line:
+            cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 0), 5)
+
+    return crop, line_image
+
+
 def egg_contours(
         img: np.ndarray,
         dp_thresh: Tuple[int, int] = (8, 23),
@@ -36,6 +72,7 @@ def egg_contours(
             contour_list.append(contour)
 
     return contour_list
+
 
 def optimize_segmentation_hypers(
         imgs: List[np.ndarray],
